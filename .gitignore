@@ -1,0 +1,4 @@
+﻿.private/
+.env*
+*.log
+android/local.properties

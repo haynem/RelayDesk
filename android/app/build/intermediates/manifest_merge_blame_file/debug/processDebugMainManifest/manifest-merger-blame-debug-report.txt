@@ -1,0 +1,97 @@
+1<?xml version="1.0" encoding="utf-8"?>
+2<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+3    package="jp.relaydesk.notifications"
+4    android:versionCode="1"
+5    android:versionName="0.1.0" >
+6
+7    <uses-sdk
+8        android:minSdkVersion="26"
+9        android:targetSdkVersion="35" />
+10
+11    <uses-permission android:name="android.permission.INTERNET" />
+11-->C:\Users\hayan\Documents\Codex\2026-10-27\files-pasted-by-the-user-c\outputs\RelayDesk\android\app\src\main\AndroidManifest.xml:2:5-66
+11-->C:\Users\hayan\Documents\Codex\2026-10-27\files-pasted-by-the-user-c\outputs\RelayDesk\android\app\src\main\AndroidManifest.xml:2:22-64
+12
+13    <application
+13-->C:\Users\hayan\Documents\Codex\2026-10-27\files-pasted-by-the-user-c\outputs\RelayDesk\android\app\src\main\AndroidManifest.xml:3:5-14:19
+14        android:allowBackup="false"
+14-->C:\Users\hayan\Documents\Codex\2026-10-27\files-pasted-by-the-user-c\outputs\RelayDesk\android\app\src\main\AndroidManifest.xml:3:108-135
+15        android:debuggable="true"
+16        android:extractNativeLibs="false"
+17        android:label="RelayDesk"
+17-->C:\Users\hayan\Documents\Codex\2026-10-27\files-pasted-by-the-user-c\outputs\RelayDesk\android\app\src\main\AndroidManifest.xml:3:18-43
+18        android:theme="@android:style/Theme.Material.Light.NoActionBar"
+18-->C:\Users\hayan\Documents\Codex\2026-10-27\files-pasted-by-the-user-c\outputs\RelayDesk\android\app\src\main\AndroidManifest.xml:3:44-107
+19        android:usesCleartextTraffic="false" >
+19-->C:\Users\hayan\Documents\Codex\2026-10-27\files-pasted-by-the-user-c\outputs\RelayDesk\android\app\src\main\AndroidManifest.xml:3:136-172
+20        <activity
+20-->C:\Users\hayan\Documents\Codex\2026-10-27\files-pasted-by-the-user-c\outputs\RelayDesk\android\app\src\main\AndroidManifest.xml:4:9-6:20
+21            android:name="jp.relaydesk.notifications.InboxActivity"
+21-->C:\Users\hayan\Documents\Codex\2026-10-27\files-pasted-by-the-user-c\outputs\RelayDesk\android\app\src\main\AndroidManifest.xml:4:19-48
+22            android:exported="true" >
+22-->C:\Users\hayan\Documents\Codex\2026-10-27\files-pasted-by-the-user-c\outputs\RelayDesk\android\app\src\main\AndroidManifest.xml:4:49-72
+23            <intent-filter>
+23-->C:\Users\hayan\Documents\Codex\2026-10-27\files-pasted-by-the-user-c\outputs\RelayDesk\android\app\src\main\AndroidManifest.xml:5:13-154
+24                <action android:name="android.intent.action.MAIN" />
+24-->C:\Users\hayan\Documents\Codex\2026-10-27\files-pasted-by-the-user-c\outputs\RelayDesk\android\app\src\main\AndroidManifest.xml:5:28-79
+24-->C:\Users\hayan\Documents\Codex\2026-10-27\files-pasted-by-the-user-c\outputs\RelayDesk\android\app\src\main\AndroidManifest.xml:5:36-77
+25
+26                <category android:name="android.intent.category.LAUNCHER" />
+26-->C:\Users\hayan\Documents\Codex\2026-10-27\files-pasted-by-the-user-c\outputs\RelayDesk\android\app\src\main\AndroidManifest.xml:5:79-138
+26-->C:\Users\hayan\Documents\Codex\2026-10-27\files-pasted-by-the-user-c\outputs\RelayDesk\android\app\src\main\AndroidManifest.xml:5:89-136
+27            </intent-filter>
+28        </activity>
+29        <activity
+29-->C:\Users\hayan\Documents\Codex\2026-10-27\files-pasted-by-the-user-c\outputs\RelayDesk\android\app\src\main\AndroidManifest.xml:7:9-74
+30            android:name="jp.relaydesk.notifications.MainActivity"
+30-->C:\Users\hayan\Documents\Codex\2026-10-27\files-pasted-by-the-user-c\outputs\RelayDesk\android\app\src\main\AndroidManifest.xml:7:19-47
+31            android:exported="false" />
+31-->C:\Users\hayan\Documents\Codex\2026-10-27\files-pasted-by-the-user-c\outputs\RelayDesk\android\app\src\main\AndroidManifest.xml:7:48-72
+32        <activity
+32-->C:\Users\hayan\Documents\Codex\2026-10-27\files-pasted-by-the-user-c\outputs\RelayDesk\android\app\src\main\AndroidManifest.xml:8:9-10:20
+33            android:name="jp.relaydesk.notifications.PairingActivity"
+33-->C:\Users\hayan\Documents\Codex\2026-10-27\files-pasted-by-the-user-c\outputs\RelayDesk\android\app\src\main\AndroidManifest.xml:8:19-50
+34            android:exported="true" >
+34-->C:\Users\hayan\Documents\Codex\2026-10-27\files-pasted-by-the-user-c\outputs\RelayDesk\android\app\src\main\AndroidManifest.xml:8:51-74
+35            <intent-filter>
+35-->C:\Users\hayan\Documents\Codex\2026-10-27\files-pasted-by-the-user-c\outputs\RelayDesk\android\app\src\main\AndroidManifest.xml:9:13-267
+36                <action android:name="android.intent.action.VIEW" />
+36-->C:\Users\hayan\Documents\Codex\2026-10-27\files-pasted-by-the-user-c\outputs\RelayDesk\android\app\src\main\AndroidManifest.xml:9:28-79
+36-->C:\Users\hayan\Documents\Codex\2026-10-27\files-pasted-by-the-user-c\outputs\RelayDesk\android\app\src\main\AndroidManifest.xml:9:36-77
+37
+38                <category android:name="android.intent.category.DEFAULT" />
+38-->C:\Users\hayan\Documents\Codex\2026-10-27\files-pasted-by-the-user-c\outputs\RelayDesk\android\app\src\main\AndroidManifest.xml:9:79-137
+38-->C:\Users\hayan\Documents\Codex\2026-10-27\files-pasted-by-the-user-c\outputs\RelayDesk\android\app\src\main\AndroidManifest.xml:9:89-135
+39                <category android:name="android.intent.category.BROWSABLE" />
+39-->C:\Users\hayan\Documents\Codex\2026-10-27\files-pasted-by-the-user-c\outputs\RelayDesk\android\app\src\main\AndroidManifest.xml:9:137-197
+39-->C:\Users\hayan\Documents\Codex\2026-10-27\files-pasted-by-the-user-c\outputs\RelayDesk\android\app\src\main\AndroidManifest.xml:9:147-195
+40
+41                <data
+41-->C:\Users\hayan\Documents\Codex\2026-10-27\files-pasted-by-the-user-c\outputs\RelayDesk\android\app\src\main\AndroidManifest.xml:9:197-251
+42                    android:host="pair"
+42-->C:\Users\hayan\Documents\Codex\2026-10-27\files-pasted-by-the-user-c\outputs\RelayDesk\android\app\src\main\AndroidManifest.xml:9:230-249
+43                    android:scheme="relaydesk" />
+43-->C:\Users\hayan\Documents\Codex\2026-10-27\files-pasted-by-the-user-c\outputs\RelayDesk\android\app\src\main\AndroidManifest.xml:9:203-229
+44            </intent-filter>
+45        </activity>
+46
+47        <service
+47-->C:\Users\hayan\Documents\Codex\2026-10-27\files-pasted-by-the-user-c\outputs\RelayDesk\android\app\src\main\AndroidManifest.xml:11:9-13:19
+48            android:name="jp.relaydesk.notifications.LearningListener"
+48-->C:\Users\hayan\Documents\Codex\2026-10-27\files-pasted-by-the-user-c\outputs\RelayDesk\android\app\src\main\AndroidManifest.xml:11:18-50
+49            android:exported="true"
+49-->C:\Users\hayan\Documents\Codex\2026-10-27\files-pasted-by-the-user-c\outputs\RelayDesk\android\app\src\main\AndroidManifest.xml:11:82-105
+50            android:label="RelayDesk 通知学習"
+50-->C:\Users\hayan\Documents\Codex\2026-10-27\files-pasted-by-the-user-c\outputs\RelayDesk\android\app\src\main\AndroidManifest.xml:11:51-81
+51            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE" >
+51-->C:\Users\hayan\Documents\Codex\2026-10-27\files-pasted-by-the-user-c\outputs\RelayDesk\android\app\src\main\AndroidManifest.xml:11:106-180
+52            <intent-filter>
+52-->C:\Users\hayan\Documents\Codex\2026-10-27\files-pasted-by-the-user-c\outputs\RelayDesk\android\app\src\main\AndroidManifest.xml:12:13-125
+53                <action android:name="android.service.notification.NotificationListenerService" />
+53-->C:\Users\hayan\Documents\Codex\2026-10-27\files-pasted-by-the-user-c\outputs\RelayDesk\android\app\src\main\AndroidManifest.xml:12:28-109
+53-->C:\Users\hayan\Documents\Codex\2026-10-27\files-pasted-by-the-user-c\outputs\RelayDesk\android\app\src\main\AndroidManifest.xml:12:36-107
+54            </intent-filter>
+55        </service>
+56    </application>
+57
+58</manifest>

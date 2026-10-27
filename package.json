@@ -1,0 +1,79 @@
+{
+  "name": "relaydesk-private",
+  "version": "0.2.1",
+  "private": true,
+  "type": "module",
+  "description": "Private unified inbox and notification research prototype",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "npm run build && electron .",
+    "test": "npm run build && node --test tests/*.test.mjs",
+    "mcp": "node scripts/mcp-stdio.mjs",
+    "native:win": "node scripts/build-native.mjs win",
+    "native:mac": "node scripts/build-native.mjs mac",
+    "package:win": "npm run build && npm run native:win && electron-builder --win nsis portable --x64 --publish never",
+    "package:mac": "npm run build && npm run native:mac && electron-builder --mac dmg zip --arm64 --x64 --publish never"
+  },
+  "dependencies": {
+    "@evex/linejs": "npm:@jsr/evex__linejs@^3.2.1",
+    "imapflow": "2.9.1",
+    "mailparser": "3.12.4",
+    "nodemailer": "^10.2.1",
+    "qrcode": "^1.5.4",
+    "selfsigned": "^5.5.0"
+  },
+  "devDependencies": {
+    "@types/mailparser": "^3.4.6",
+    "@types/node": "^24.0.0",
+    "@types/nodemailer": "^8.0.2",
+    "@types/qrcode": "^1.5.6",
+    "electron": "45.0.0",
+    "electron-builder": "^26.18.0",
+    "typescript": "^5.9.3"
+  },
+  "overrides": {
+    "thrift": "0.23.0"
+  },
+  "build": {
+    "appId": "jp.relaydesk.private",
+    "productName": "RelayDesk",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "ui/**/*",
+      "scripts/mcp-stdio.mjs",
+      "native/messenger/**/*",
+      "THIRD_PARTY_NOTICES.md",
+      "package.json"
+    ],
+    "asar": true,
+    "win": {
+      "extraResources": [{"from":"native/bin/messenger-helper.exe","to":"native/bin/messenger-helper.exe"}],
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "RelayDesk-${version}-Setup.${ext}"
+    },
+    "portable": {
+      "artifactName": "RelayDesk-${version}-Portable.${ext}"
+    },
+    "mac": {
+      "extraResources": [{"from":"native/bin/messenger-helper-${arch}","to":"native/bin/messenger-helper"}],
+      "category": "public.app-category.social-networking",
+      "identity": null,
+      "artifactName": "RelayDesk-${version}-${arch}.${ext}"
+    },
+    "dmg": {
+      "sign": false
+    }
+  }
+}

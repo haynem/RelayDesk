@@ -1,0 +1,18 @@
+{
+  "ok": true,
+  "fixture": true,
+  "osEncryption": true,
+  "checks": [
+    "empty inbox",
+    "connection dialog",
+    "account registration",
+    "fixture synchronization",
+    "thread rendering",
+    "draft staging",
+    "AI sharing defaults off",
+    "Slack browser login without token",
+    "Gmail presets and automatic name",
+    "reload preserves authentication"
+  ],
+  "rendererErrors": []
+}

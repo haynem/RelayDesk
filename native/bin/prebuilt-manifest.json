@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "sourceDigest": "c18552272798a8dd6b351a112c97fcba0ca7a1fc33de6f53bec8fd4af380dd41",
+  "files": {
+    "messenger-helper.exe": "c4226573b3a8f8b5f7711834544b368e8ceb7a8118e5acf2a322d25c0a6f8085",
+    "messenger-helper-arm64": "7da15bca7b087a1dfe252c401ff8bf2680218e6249c605cf7da9613945cefca8",
+    "messenger-helper-x64": "0fd41123e227ed28d3227b45b3cebb47286ad4898d13f093c062eb06fef3481a"
+  }
+}

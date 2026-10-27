@@ -1,0 +1,21 @@
+{
+  "ok": true,
+  "syntheticOnly": true,
+  "realMessagesSent": 0,
+  "checks": [
+    "priority inbox",
+    "whole-level feedback and persistence",
+    "inline reply",
+    "cancellation prevents send",
+    "explicit approval with fake adapter",
+    "local seen without remote receipt",
+    "six original-service entry points",
+    "read effect acknowledgement",
+    "new email remains a draft",
+    "editable reply restoration after reload",
+    "selected-conversation sharing",
+    "desktop notification settings",
+    "older mail retrieval preserves latest metadata"
+  ],
+  "rendererErrors": []
+}

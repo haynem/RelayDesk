@@ -1,0 +1,4 @@
+beaee87e6664e03c265b1a3a8eed309e64b363375a1df66ff7da9d44b01af421  RelayDesk-0.2.1-Setup.exe
+4e2a569804ab2c8ad94547e2231609a34bc4023e96656fc6c0f3ae8d6eb2ba26  RelayDesk-0.2.1-Portable.exe
+1f55d1ef64458e83a9fdeefd6db2fbf3953fc7b9bfda5884ca8f7e1c97cefd07  RelayDesk-0.2.0-android.apk
+56483e2921c93fd0e062ada612d8f89d12147fc0d07ed21706ae304305c0b0d3  RelayDesk-0.2.1-mac-source.zip

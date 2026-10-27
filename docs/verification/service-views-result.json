@@ -1,0 +1,15 @@
+{
+  "ok": true,
+  "syntheticOnly": true,
+  "realServiceRequests": 0,
+  "checks": [
+    "embedded native view",
+    "main key isolated",
+    "Node disabled",
+    "sidebar preserved",
+    "hide and resume",
+    "no duplicate view",
+    "account removal closes surface",
+    "host spoof rejected"
+  ]
+}

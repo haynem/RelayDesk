@@ -1,0 +1,18 @@
+{
+  "date": "2026-10-27",
+  "service": "instagram",
+  "authenticated": true,
+  "threads": 15,
+  "messages": 283,
+  "restartRestored": true,
+  "resyncCountsUnchanged": true,
+  "localUI": {
+    "renderedThreads": 15,
+    "bodyElements": 15,
+    "searchPassed": true
+  },
+  "aiSharedAccounts": 0,
+  "readReceiptsVerified": false,
+  "sendingVerified": false,
+  "personalContentIncluded": false
+}

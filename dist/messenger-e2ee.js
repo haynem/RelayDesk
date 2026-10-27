@@ -1,0 +1,248 @@
+import { absorbMessengerCookies } from './auth-config.js';
+import { spawn } from 'node:child_process';
+import { createInterface } from 'node:readline';
+import { randomUUID } from 'node:crypto';
+import { unlinkSync, existsSync } from 'node:fs';
+import { mergeBatch, key } from './model.js';
+import { observeLearning } from './learning.js';
+import { newNotificationTargets } from './desktop-notification-policy.js';
+class MessengerRejection extends Error {
+    code;
+    attemptsRemaining;
+    definitelyNotSent = true;
+    constructor(code, attemptsRemaining) {
+        super(messages[code] || 'Messengerの暗号化連携を準備できません。接続の状態を確認してください');
+        this.code = code;
+        this.attemptsRemaining = attemptsRemaining;
+    }
+}
+const messages = { e2ee_disconnected: '暗号化接続の再接続を待ってから操作してください', device_registration_required: '暗号化連携の端末登録を本人が承認してください', device_registration_uncertain: '端末登録の結果が不明です。同じ鍵を保持しています。公式画面で状態を確認してから再開してください', encrypted_store_failed: '暗号化された鍵保管庫を開けません。既存の鍵は上書きしていません', history_pin_required: 'このアプリ内でMessengerの履歴復元PINを入力してください', six_digit_pin_required: 'Messengerの履歴復元PINを6桁で入力してください', history_pin_rejected: '履歴復元PINを確認できませんでした。自動では再試行しません', history_backup_unavailable: 'Messengerのセキュアストレージを取得できません。公式画面で設定を確認してください', history_enrollment_uncertain: '履歴用端末登録の結果が不明です。保存した鍵を保持しており、自動再登録は行いません', quote_unavailable: '引用元を暗号化保管庫で確認できません。会話を取得して引用し直してください', message_changed: '対象のメッセージが更新されています。本文を確認して操作し直してください', message_unavailable: '暗号化保管庫に対象のメッセージがありません。履歴を取得してください', identity_mismatch: 'ログインした本人と暗号鍵の所有者が一致しません', logged_out: 'Messengerの暗号化接続がログアウトされました。本人の再認証が必要です' };
+export class MessengerEncrypted {
+    vault;
+    helper;
+    notify;
+    runtimes = new Map();
+    closing = false;
+    constructor(vault, helper, notify) {
+        this.vault = vault;
+        this.helper = helper;
+        this.notify = notify;
+    }
+    data(id) { return (this.vault.state.messengerEncrypted ??= {})[id] ??= { enabled: false }; }
+    status(id) { const s = this.vault.state.messengerEncrypted?.[id], runtime = this.runtimes.get(id); return { enabled: s?.enabled === true, connected: runtime?.connected === true, hasDevice: !!s?.deviceId, historyReady: s?.historyReady === true, error: s?.errorCode ? messages[s.errorCode] || '暗号化接続が中断しています。再接続または公式ログインを確認してください' : '', lastSync: s?.lastSync }; }
+    enabled(id) { return this.vault.state.messengerEncrypted?.[id]?.enabled === true; }
+    async enable(accountId, approved) { if (!approved)
+        throw Error('Messengerへの暗号化連携端末の登録を確認してください'); const account = this.account(accountId); this.data(accountId).enabled = true; this.vault.save(); await this.ensure(account, true); return this.status(accountId); }
+    async disable(accountId) { this.data(accountId).enabled = false; await this.stop(accountId); this.vault.save(); return this.status(accountId); }
+    account(id) { const a = this.vault.state.accounts.find(a => a.id === id && a.adapter === 'messenger' && !a.config.homeserver); if (!a)
+        throw Error('Messengerの直接接続がありません'); return a; }
+    async ensure(account, register = false) {
+        if (this.closing || !this.enabled(account.id))
+            throw new MessengerRejection('device_registration_required');
+        const current = this.runtimes.get(account.id);
+        if (current) {
+            if (current.viewerId !== account.config.viewerId)
+                throw new MessengerRejection('identity_mismatch');
+            await current.ready;
+            return;
+        }
+        let resolveReady, rejectReady;
+        const ready = new Promise((resolve, reject) => { resolveReady = resolve; rejectReady = reject; });
+        void ready.catch(() => { });
+        const child = spawn(this.helper, [], { windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] }), runtime = { child, viewerId: account.config.viewerId, ready, resolveReady, rejectReady, pending: new Map(), stopping: false, connected: false };
+        this.runtimes.set(account.id, runtime);
+        child.stderr.resume();
+        const timer = setTimeout(() => this.fail(account.id, runtime, 'e2ee_connect_failed'), 60000);
+        void ready.finally(() => clearTimeout(timer)).catch(() => { });
+        const lines = createInterface({ input: child.stdout, crlfDelay: Infinity });
+        lines.on('line', line => { if (Buffer.byteLength(line) > 40 * 1024 * 1024) {
+            this.fail(account.id, runtime, 'response_too_large');
+            return;
+        } try {
+            this.receive(account.id, runtime, JSON.parse(line));
+        }
+        catch {
+            this.fail(account.id, runtime, 'invalid_response');
+        } });
+        child.once('error', () => this.fail(account.id, runtime, 'worker_unavailable'));
+        child.once('close', () => { lines.close(); this.fail(account.id, runtime, 'worker_stopped'); });
+        child.stdin.on('error', () => { });
+        const store = this.vault.nativeStore(account.id);
+        child.stdin.write(JSON.stringify({ version: 1, mode: 'e2ee-worker', viewerId: runtime.viewerId, cookies: JSON.parse(account.config.cookies || '[]').map((c) => ({ name: c.name, value: c.value })), storePath: store.path, storeKey: store.key, allowRegister: register }) + '\n');
+        await ready;
+        const snapshot = await this.request(account.id, { mode: 'snapshot' });
+        for (const raw of snapshot.messages || [])
+            this.merge(account.id, runtime, raw, undefined, false);
+    }
+    fail(id, runtime, code) {
+        if (this.runtimes.get(id) !== runtime)
+            return;
+        this.runtimes.delete(id);
+        runtime.connected = false;
+        runtime.rejectReady(new MessengerRejection(code));
+        for (const p of runtime.pending.values()) {
+            clearTimeout(p.timer);
+            p.reject(Error('暗号化操作の結果を確認できません。自動では再実行しません'));
+        }
+        runtime.pending.clear();
+        if (!runtime.stopping) {
+            const state = this.data(id);
+            state.connected = false;
+            state.errorCode = code;
+            if (this.vault.state.accounts.some(a => a.id === id))
+                this.vault.save();
+        }
+        if (!runtime.child.killed)
+            runtime.child.kill();
+    }
+    receive(id, runtime, value) {
+        if (this.runtimes.get(id) !== runtime)
+            return;
+        if (value.cookies) {
+            const account = this.vault.state.accounts.find(a => a.id === id && a.config.viewerId === runtime.viewerId);
+            if (account && absorbMessengerCookies(account, value.cookies))
+                this.vault.save();
+        }
+        if (value.type === 'response') {
+            const pending = runtime.pending.get(value.id);
+            if (!pending)
+                return;
+            runtime.pending.delete(value.id);
+            clearTimeout(pending.timer);
+            if (value.ok)
+                pending.resolve(value);
+            else if (value.attempted === false)
+                pending.reject(new MessengerRejection(String(value.error), Number.isInteger(value.attemptsRemaining) ? value.attemptsRemaining : undefined));
+            else
+                pending.reject(Error('Messengerでの操作結果が不明です。公式画面で確認してから操作してください'));
+            return;
+        }
+        if (value.type === 'ready') {
+            if (value.viewerId !== runtime.viewerId) {
+                this.fail(id, runtime, 'identity_mismatch');
+                return;
+            }
+            runtime.connected = true;
+            Object.assign(this.data(id), { deviceId: String(value.deviceId), historyReady: value.historyReady === true, connected: true, errorCode: undefined });
+            this.vault.save();
+            runtime.resolveReady();
+            return;
+        }
+        if (value.type === 'catalog') {
+            if (value.viewerId !== runtime.viewerId)
+                return;
+            for (const raw of value.threads || [])
+                this.catalog(id, raw);
+            this.vault.save();
+            return;
+        }
+        if (value.type === 'message') {
+            let saved = false;
+            try {
+                saved = this.merge(id, runtime, value.message, value.thread, true);
+            }
+            finally {
+                runtime.child.stdin.write(JSON.stringify({ mode: 'ack', sequence: value.sequence, saved }) + '\n');
+            }
+            return;
+        }
+        if (value.type === 'status') {
+            const state = this.data(id);
+            if (value.code === 'synchronized') {
+                state.lastSync = Date.now();
+                delete state.errorCode;
+            }
+            else if (['disconnected', 'logged_out'].includes(value.code)) {
+                runtime.connected = false;
+                state.connected = false;
+                state.errorCode = value.code;
+            }
+            this.vault.save();
+            return;
+        }
+        if (value.ok === false)
+            this.fail(id, runtime, String(value.error || 'e2ee_setup_failed'));
+    }
+    catalog(id, raw) {
+        if (!raw || typeof raw.id !== 'string' || typeof raw.remoteJid !== 'string')
+            throw Error('invalid_catalog');
+        const state = this.vault.state, source = String(raw.sourceId || raw.id);
+        if (source !== raw.id && state.threads.some(t => t.accountId === id && t.id === source)) {
+            const old = state.threads.find(t => t.accountId === id && t.id === source);
+            if (!state.threads.some(t => t.accountId === id && t.id === raw.id))
+                state.threads.push({ ...old, id: raw.id, remoteJid: raw.remoteJid, remoteRef: source });
+            state.threads = state.threads.filter(t => t !== old);
+            for (const collection of [state.messages, state.drafts, state.assets || [], state.composerDrafts || [], state.learning?.events || [], state.learning?.rules || [], state.learning?.proposals || [], state.learning?.changes || [], state.operations || []])
+                for (const row of collection)
+                    if (row.accountId === id && row.threadId === source)
+                        row.threadId = raw.id;
+            for (const gap of state.syncGaps || [])
+                if (gap.accountId === id && gap.threadId === source) {
+                    gap.threadId = raw.id;
+                    gap.thread = { ...gap.thread, id: raw.id, remoteEncrypted: true, remoteJid: raw.remoteJid, remoteRef: source };
+                }
+            const learning = state.learning;
+            if (learning) {
+                const oldKey = key(id, source), newKey = key(id, raw.id);
+                if (learning.ruleVersions?.[oldKey]) {
+                    learning.ruleVersions[newKey] = learning.ruleVersions[oldKey];
+                    delete learning.ruleVersions[oldKey];
+                }
+                learning.suppressed = learning.suppressed.map(v => v.startsWith(oldKey + ':') ? newKey + v.slice(oldKey.length) : v);
+                for (const change of learning.changes)
+                    if (change.previous?.accountId === id && change.previous.threadId === source)
+                        change.previous.threadId = raw.id;
+            }
+            for (const grant of state.remoteMcp?.grants || [])
+                for (const share of grant.shares)
+                    if (share.accountId === id)
+                        share.threadIds = share.threadIds.map(t => t === source ? raw.id : t);
+            for (const auth of state.remoteMcp?.authorizations || [])
+                for (const share of auth.shares || [])
+                    if (share.accountId === id)
+                        share.threadIds = share.threadIds.map(t => t === source ? raw.id : t);
+            const account = state.accounts.find(a => a.id === id);
+            if (account?.aiThreadIds)
+                account.aiThreadIds = account.aiThreadIds.map(t => t === source ? raw.id : t);
+        }
+        const account = state.accounts.find(a => a.id === id);
+        if (account)
+            mergeBatch(state, account, { threads: [this.thread(id, raw)], messages: [] });
+    }
+    thread(id, raw) { return { id: String(raw.id), accountId: id, title: String(raw.title || raw.id), isGroup: !!raw.isGroup, updatedAt: Number(raw.updatedAt) || 0, remoteEncrypted: true, remoteJid: String(raw.remoteJid || ''), remoteRef: raw.sourceId ? String(raw.sourceId) : undefined, members: Array.isArray(raw.members) ? raw.members.map(String) : [], membersComplete: false }; }
+    message(id, raw) { if (!raw || typeof raw.id !== 'string' || typeof raw.threadId !== 'string' || !Number.isFinite(Number(raw.ts)))
+        throw Error('invalid_encrypted_message'); return { id: raw.id, accountId: id, threadId: raw.threadId, sender: String(raw.sender || raw.senderId || '不明'), senderId: raw.senderId, remoteJid: raw.remoteJid, remoteTransport: 'e2ee', text: String(raw.text || ''), ts: Number(raw.ts), historyCursor: String(Number(raw.ts)) + ':' + raw.id, isMe: !!raw.isMe, replyTo: raw.replyTo, deleted: !!raw.deleted, unavailable: !!raw.unavailable, editedAt: Number(raw.editedAt) || undefined, revision: Number(raw.revision) || 0, reactions: raw.reactions, attachments: (raw.attachments || []).map((f) => ({ name: String(f.name || '添付'), kind: String(f.kind || 'application/octet-stream'), size: Number(f.size) || undefined, remoteId: typeof f.remoteId === 'string' ? f.remoteId : undefined })) }; }
+    merge(id, runtime, raw, rawThread, notify) { const account = this.vault.state.accounts.find(a => a.id === id && a.config.viewerId === runtime.viewerId); if (!account || this.runtimes.get(id) !== runtime || runtime.stopping)
+        return false; const state = this.vault.state, message = this.message(id, raw), old = state.messages.find(m => m.accountId === id && m.threadId === message.threadId && m.id === message.id), known = new Set(old ? [key(id, message.threadId, message.id)] : []), thread = rawThread ? this.thread(id, rawThread) : state.threads.find(t => t.accountId === id && t.id === message.threadId) || this.thread(id, { id: message.threadId, remoteJid: message.remoteJid, title: message.threadId, isGroup: message.remoteJid?.endsWith('@g.us'), updatedAt: message.ts }); thread.updatedAt = Math.max(thread.updatedAt, message.ts); thread.bodyUnavailable = message.unavailable === true && !state.messages.some(m => m.accountId === id && m.threadId === thread.id && !m.unavailable && !m.deleted); if (notify)
+        thread.lastSync = Date.now(); mergeBatch(state, account, { threads: [thread], messages: [message] }); if (!old && notify)
+        observeLearning(state, 'received', message); this.vault.save(); if (notify)
+        this.notify?.(newNotificationTargets(state, account, { threads: [thread], messages: [message] }, known, account.lastSync)); return true; }
+    async request(id, input) { const runtime = this.runtimes.get(id); if (!runtime || runtime.stopping)
+        throw new MessengerRejection('e2ee_connect_failed'); await runtime.ready; const requestId = randomUUID(); return new Promise((resolve, reject) => { const timer = setTimeout(() => { runtime.pending.delete(requestId); reject(Error('Messengerの応答が不明です。操作を自動で繰り返しません')); }, 195000); runtime.pending.set(requestId, { resolve, reject, timer }); runtime.child.stdin.write(JSON.stringify({ ...input, id: requestId }) + '\n', error => { if (error) {
+        clearTimeout(timer);
+        runtime.pending.delete(requestId);
+        reject(Error('暗号化接続が切れています'));
+    } }); }); }
+    async recover(id, pin, approved) { if (!approved || pin !== '' && !/^\d{6}$/.test(pin))
+        throw Error('6桁の履歴復元PINをこのアプリ内に入力してください'); const account = this.account(id); await this.ensure(account); const result = await this.request(id, { mode: 'recover-history', pin, approved: true }); this.data(id).historyReady = result.historyReady === true; this.vault.save(); return this.status(id); }
+    async send(account, thread, content, operationId) { await this.ensure(account); const result = await this.request(account.id, { mode: 'send', threadId: thread.id, jid: thread.remoteJid, text: content.text, replyTo: content.replyTo, files: content.files.map(f => ({ name: f.name, mime: f.mime, data: f.data.toString('base64') })), operationId, approved: true }); return { id: String(result.remoteId) }; }
+    async action(account, thread, action, operationId) { await this.ensure(account); await this.request(account.id, { mode: action.kind, threadId: thread.id, jid: thread.remoteJid, messageId: action.messageId, expectedText: action.expectedText, text: action.text, emoji: action.emoji, operationId, approved: true }); }
+    async receipt(account, thread, message) { await this.ensure(account); await this.request(account.id, { mode: 'receipt', threadId: thread.id, jid: thread.remoteJid, messageId: message.id, operationId: randomUUID(), approved: true }); }
+    async history(account, thread, before) { await this.ensure(account); const timestamp = before ? Number(before.slice(0, before.indexOf(':'))) : Date.now(), result = await this.request(account.id, { mode: 'history', threadId: thread.id, jid: thread.remoteJid, timestamp }); return { threads: (result.threads || []).map((t) => this.thread(account.id, t)), messages: (result.messages || []).map((m) => this.message(account.id, m)) }; }
+    async members(account, thread) { await this.ensure(account); return (await this.request(account.id, { mode: 'members', threadId: thread.id, jid: thread.remoteJid })).members; }
+    async download(account, file) { let ref; try {
+        ref = JSON.parse(file.remoteId?.slice(5) || '');
+    }
+    catch {
+        throw Error('添付の参照を確認できません');
+    } const thread = this.vault.state.threads.find(t => t.accountId === account.id && t.id === ref.threadId), message = this.vault.state.messages.find(m => m.accountId === account.id && m.threadId === ref.threadId && m.id === ref.messageId && m.attachments.some(a => a.remoteId === file.remoteId)); if (!thread || !message || ref.index !== 0)
+        throw Error('添付の所属が一致しません'); await this.ensure(account); const result = await this.request(account.id, { mode: 'download', threadId: thread.id, jid: thread.remoteJid, messageId: message.id }), data = Buffer.from(result.data, 'base64'); if (data.length > 25 * 1024 * 1024)
+        throw Error('添付は25MBまでです'); return data; }
+    async stop(id) { const runtime = this.runtimes.get(id); if (!runtime)
+        return; runtime.stopping = true; await new Promise(resolve => { const timer = setTimeout(() => runtime.child.kill(), 5000); runtime.child.once('close', () => { clearTimeout(timer); resolve(); }); runtime.child.stdin.write(JSON.stringify({ mode: 'stop' }) + '\n'); }); this.fail(id, runtime, 'stopped'); }
+    async forget(id) { await this.stop(id); if (this.vault.state.messengerEncrypted)
+        delete this.vault.state.messengerEncrypted[id]; const store = this.vault.nativeStore(id); for (const suffix of ['', '-journal', '-wal', '-shm'])
+        if (existsSync(store.path + suffix))
+            unlinkSync(store.path + suffix); this.vault.save(); }
+    async close() { this.closing = true; await Promise.all([...this.runtimes.keys()].map(id => this.stop(id))); }
+}
